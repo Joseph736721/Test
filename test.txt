@@ -17,10 +17,10 @@ screenGui.Name = "TreeFarmGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = cooper:WaitForChild("PlayerGui")
 
--- Conteneur Principal
+-- Conteneur Principal (Taille augmentée à 120 pour accueillir les coordonnées)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 90)
-mainFrame.Position = UDim2.new(0, 15, 1, -105) -- Positionné en bas à gauche
+mainFrame.Size = UDim2.new(0, 200, 0, 120)
+mainFrame.Position = UDim2.new(0, 15, 1, -135) -- Ajusté pour ne pas déborder
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
@@ -32,7 +32,7 @@ uiCorner.Parent = mainFrame
 
 -- Label pour le statut/progression
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 0, 40)
+statusLabel.Size = UDim2.new(1, 0, 0, 30)
 statusLabel.Position = UDim2.new(0, 0, 0, 5)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Statut: En attente..."
@@ -41,10 +41,21 @@ statusLabel.TextSize = 14
 statusLabel.Font = Enum.Font.SourceSansBold
 statusLabel.Parent = mainFrame
 
+-- Label pour les Coordonnées XYZ en direct
+local coordsLabel = Instance.new("TextLabel")
+coordsLabel.Size = UDim2.new(1, 0, 0, 25)
+coordsLabel.Position = UDim2.new(0, 0, 0, 35)
+coordsLabel.BackgroundTransparency = 1
+coordsLabel.Text = "X: 0 | Y: 0 | Z: 0"
+coordsLabel.TextColor3 = Color3.fromRGB(241, 196, 15) -- Couleur jaune/or pour lisibilité
+coordsLabel.TextSize = 13
+coordsLabel.Font = Enum.Font.Code
+coordsLabel.Parent = mainFrame
+
 -- Bouton Activer / Désactiver
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 170, 0, 30)
-toggleButton.Position = UDim2.new(0, 15, 0, 45)
+toggleButton.Position = UDim2.new(0, 15, 0, 70)
 toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Vert par défaut
 toggleButton.Text = "Disable"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -61,12 +72,23 @@ toggleButton.MouseButton1Click:Connect(function()
     _G.FarmEnabled = not _G.FarmEnabled
     if _G.FarmEnabled then
         toggleButton.Text = "Disable"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Vert
+        toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
         statusLabel.Text = "Statut: Activé"
     else
         toggleButton.Text = "Enable"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60) -- Rouge
+        toggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
         statusLabel.Text = "Statut: Désactivé"
+    end
+end)
+
+-- MISE À JOUR DES COORDONNÉES EN DIRECT
+RunService.RenderStepped:Connect(function()
+    if cooper.Character and cooper.Character:FindFirstChild("HumanoidRootPart") then
+        local pos = cooper.Character.HumanoidRootPart.Position
+        -- Arrondit à 1 chiffre après la virgule pour éviter d'avoir un texte trop long
+        coordsLabel.Text = string.format("X: %.1f | Y: %.1f | Z: %.1f", pos.X, pos.Y, pos.Z)
+    else
+        coordsLabel.Text = "X: -- | Y: -- | Z: --"
     end
 end)
 
@@ -76,14 +98,12 @@ end)
 local treeregins = {}
 local treclases = {}
 
--- TROUVER LES RÉGIONS D'ARBRES
 for _, v in next, workspace:GetChildren() do
     if v.Name == "TreeRegion" then
         table.insert(treeregins, v)
     end
 end
 
--- COLLECTER LES CLASSES D'ARBRE
 for _, region in next, treeregins do
     for _, tree in next, region:GetChildren() do
         if tree:FindFirstChild("TreeClass") and not table.find(treclases, tree.TreeClass.Value) then
@@ -92,7 +112,6 @@ for _, region in next, treeregins do
     end
 end
 
--- STATS DE LA HACHE
 function getAxStats(axName, treClas)
     local module = axeclasses:FindFirstChild("AxeClass_" .. axName)
     if not module then return end
@@ -108,7 +127,6 @@ function getAxStats(axName, treClas)
     return axStats
 end
 
--- CALCUL MASSE DE L'ARBRE
 function getModlMass(model)
     local total = 0
     local sections = 0
@@ -125,7 +143,6 @@ function getModlMass(model)
     return total, sections
 end
 
--- TROUVER LE MEILLEUR ARBRE
 function getTrreOfClas(clas)
     local options = {}
 
@@ -158,7 +175,6 @@ end
 function choppy(tre, ax)
     task.wait()
 
-    -- Téléportation initiale directement sur la position du tronc
     cooper.Character.HumanoidRootPart.CFrame = CFrame.new(tre.WoodSection.Position)
 
     task.wait(0.25)
@@ -191,7 +207,7 @@ function choppy(tre, ax)
     repeat
         replicatedfarts.Interaction.RemoteProxy:FireServer(tre.CutEvent, propertys)
         task.wait(axStats.SwingCooldown)
-    until newtre ~= nil or not _G.FarmEnabled -- S'arrête aussi si désactivé en plein milieu
+    until newtre ~= nil or not _G.FarmEnabled
 
     return newtre
 end
@@ -232,7 +248,6 @@ function bringy(treclas)
 
     local follow
 
-    -- Téléportation continue DANS le tronc (Pas de Fly / Pas d'offset vertical)
     if treclas ~= "LoneCave" then
         follow = RunService.Heartbeat:Connect(function()
             if tre and tre:FindFirstChild("WoodSection") then
