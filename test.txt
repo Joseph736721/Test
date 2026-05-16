@@ -1,131 +1,99 @@
--- Gui to Lua
--- Version: 1
-
--- Instances:
-
-local ScreenGui = Instance.new("ScreenGui")
-local Frame = Instance.new("Frame")
-local TextLabel = Instance.new("TextLabel")
-local ScrollingFrame = Instance.new("ScrollingFrame")
-local UIListLayout = Instance.new("UIListLayout")
-local UIPadding = Instance.new("UIPadding")
-
---Properties:
-
-ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-Frame.Parent = ScreenGui
-Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-Frame.BackgroundColor3 = Color3.fromRGB(139, 69, 19)
-Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BorderSizePixel = 7
-Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-Frame.Size = UDim2.new(0, 250, 0, 650)
-
-TextLabel.Parent = Frame
-TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-TextLabel.BackgroundTransparency = 1.000
-TextLabel.BorderSizePixel = 0
-TextLabel.Size = UDim2.new(0, 186, 0, 50)
-TextLabel.Font = Enum.Font.Bangers
-TextLabel.Text = "       BY: Kykyry3ina"
-TextLabel.TextColor3 = Color3.fromRGB(205, 133, 63)
-TextLabel.TextSize = 39.000
-
-ScrollingFrame.Parent = Frame
-ScrollingFrame.Active = true
-ScrollingFrame.BackgroundColor3 = Color3.fromRGB(10, 105, 30)
-ScrollingFrame.BackgroundTransparency = 1.000
-ScrollingFrame.BorderSizePixel = 0
-ScrollingFrame.Position = UDim2.new(0, 0, 0.200000003, 0)
-ScrollingFrame.Size = UDim2.new(0, 300, 0, 500)
-ScrollingFrame.ScrollBarThickness = 0
-ScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-UIPadding.Parent = ScrollingFrame
-UIPadding.PaddingBottom = UDim.new(0, 8)
-
-UIListLayout.Parent = ScrollingFrame
-UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 8)
-
--- cooper get trre
+-- PLAYER / SERVICES
 local cooper = game.Players.LocalPlayer
-local treeregins = {}
-local treclases = {}
 local replicatedfarts = game.ReplicatedStorage
 local axeclasses = replicatedfarts:WaitForChild("AxeClasses")
 
-for _, cooper in next, workspace:GetChildren() do
-	if cooper.Name == "TreeRegion" then
-		table.insert(treeregins, cooper)
+-- STORAGE
+local treeregins = {}
+local treclases = {}
+
+-- FIND TREE REGIONS
+for _, v in next, workspace:GetChildren() do
+	if v.Name == "TreeRegion" then
+		table.insert(treeregins, v)
 	end
 end
 
-for _, cooper in next, treeregins do
-	for _, cooper in next, cooper:GetChildren() do
-		if cooper:FindFirstChild("TreeClass") and not table.find(treclases, cooper.TreeClass.Value) then
-			table.insert(treclases, cooper.TreeClass.Value)
+-- COLLECT TREE CLASSES
+for _, region in next, treeregins do
+	for _, tree in next, region:GetChildren() do
+		if tree:FindFirstChild("TreeClass") and not table.find(treclases, tree.TreeClass.Value) then
+			table.insert(treclases, tree.TreeClass.Value)
 		end
 	end
 end
 
+-- AXE STATS
 function getAxStats(axName, treClas)
-	local coopermodule = axeclasses:FindFirstChild("AxeClass_"..axName)
-	if not coopermodule then return end
-	local axStats = require(coopermodule).new()
+	local module = axeclasses:FindFirstChild("AxeClass_" .. axName)
+	if not module then return end
+
+	local axStats = require(module).new()
+
 	if axStats.SpecialTrees and axStats.SpecialTrees[treClas] then
-		for mini, cooper in next, axStats.SpecialTrees[treClas] do
-			axStats[mini] = cooper
+		for k, v in next, axStats.SpecialTrees[treClas] do
+			axStats[k] = v
 		end
 	end
+
 	return axStats
 end
 
+-- TREE MASS CHECK
 function getModlMass(model)
 	local total = 0
-	local woodsextions = 0
+	local sections = 0
+
 	for _, v in next, model:GetDescendants() do
 		if v:IsA("BasePart") and v.Name ~= "Leaves" then
-			if v.Name == "WoodSection" then woodsextions = woodsextions + 1 end
-			total = total + v.Mass
+			if v.Name == "WoodSection" then
+				sections += 1
+			end
+			total += v.Mass
 		end
 	end
-	return total, woodsextions
+
+	return total, sections
 end
 
+-- FIND BEST TREE
 function getTrreOfClas(clas)
-	local posibilitys = {}
-	for _, cooper1 in next, treeregins do
-		for _, cooper2 in next, cooper1:GetChildren() do
-			if cooper2:IsA("Model") and cooper2:FindFirstChild("CutEvent") then
-				local trreclas = cooper2:FindFirstChild("TreeClass")
-				local onwer = cooper2:FindFirstChild("Owner")
-				if onwer and trreclas and onwer.Value == nil and trreclas.Value == clas then
-					local mas, secs = getModlMass(cooper2)
+	local options = {}
+
+	for _, region in next, treeregins do
+		for _, tree in next, region:GetChildren() do
+			if tree:IsA("Model") and tree:FindFirstChild("CutEvent") then
+				local trreclas = tree:FindFirstChild("TreeClass")
+				local owner = tree:FindFirstChild("Owner")
+
+				if owner and trreclas and owner.Value == nil and trreclas.Value == clas then
+					local mass, secs = getModlMass(tree)
 					if secs > 1 then
-						table.insert(posibilitys, {
-							tre = cooper2,
-							mass = mas
-						})
+						table.insert(options, {tre = tree, mass = mass})
 					end
 				end
 			end
 		end
 	end
-	table.sort(posibilitys, function(cooper1, cooper2)
-		return cooper1.mass > cooper2.mass
+
+	table.sort(options, function(a, b)
+		return a.mass > b.mass
 	end)
-	return posibilitys[1] and posibilitys[1].tre or false, "No tree found."
+
+	return options[1] and options[1].tre or false, "No tree found."
 end
 
+-- CHOP FUNCTION
 function choppy(tre, ax)
 	task.wait()
-	cooper.Character.HumanoidRootPart.CFrame = CFrame.new(tre.WoodSection.Position + Vector3.new(5, 0, 0))
+
+	cooper.Character.HumanoidRootPart.CFrame =
+		CFrame.new(tre.WoodSection.Position + Vector3.new(5, 0, 0))
+
 	task.wait(0.25)
+
 	local axStats = getAxStats(ax.ToolName.Value, tre.TreeClass.Value)
+
 	local propertys = {
 		tool = ax,
 		height = 0.3,
@@ -136,164 +104,106 @@ function choppy(tre, ax)
 		cuttingClass = "Axe"
 	}
 
-	local newtre, trecon = nil, nil
-	trecon = workspace.LogModels.ChildAdded:Connect(function(tre)
+	local newtre = nil
+	local conn
+
+	conn = workspace.LogModels.ChildAdded:Connect(function(t)
 		task.wait()
-		if tre.Owner.Value == cooper then
-			newtre = tre
-			trecon:Disconnect()
-			trecon = nil
+		if t:FindFirstChild("Owner") and t.Owner.Value == cooper then
+			newtre = t
+			conn:Disconnect()
 		end
 	end)
+
 	repeat
 		replicatedfarts.Interaction.RemoteProxy:FireServer(tre.CutEvent, propertys)
 		task.wait(axStats.SwingCooldown)
 	until newtre ~= nil
+
 	return newtre
 end
 
-function hahafunnygod()
-	local rootjoint = cooper.Character.HumanoidRootPart.RootJoint
-	rootjoint:Clone().Parent = rootjoint.Parent
-	rootjoint:Destroy()
-	task.wait()
-end
-
+-- MAIN FARM FUNCTION
 function bringy(treclas)
-	local curpos = cooper.Character.HumanoidRootPart.CFrame
+	local startpos = cooper.Character.HumanoidRootPart.CFrame
 	cooper.Character.Humanoid:UnequipTools()
 	task.wait()
+
 	local axs = {}
-	for _, cooper in next, cooper.Backpack:GetChildren() do
-		if cooper.Name ~= "BlueprintTool" and cooper:FindFirstChild("ToolName") then
+
+	for _, tool in next, cooper.Backpack:GetChildren() do
+		if tool:FindFirstChild("ToolName") and tool.Name ~= "BlueprintTool" then
 			table.insert(axs, {
-				ax = cooper,
-				stats = getAxStats(cooper.ToolName.Value, treclass)
+				ax = tool,
+				stats = getAxStats(tool.ToolName.Value, treclas)
 			})
 		end
 	end
-	if #axs == 0 then return false, "Pleas pickup a ax." end
-	table.sort(axs, function(cooper1, cooper2)
-		return cooper1.stats.Damage > cooper2.stats.Damage
+
+	if #axs == 0 then
+		return false, "No axe found"
+	end
+
+	table.sort(axs, function(a, b)
+		return a.stats.Damage > b.stats.Damage
 	end)
+
 	local ax = axs[1].ax
-	local tre, msg = getTrreOfClas(treclas)
+	local tre = getTrreOfClas(treclas)
+
 	if not tre then
-		return false, msg
+		return false, "No tree found"
 	end
-	if treclas == "LoneCave" then
-		if ax.ToolName.Value ~= "EndTimesAxe" then
-			return false, "2 get this tre u need end axe loser."
-		end
-		hahafunnygod()
-	end
-	local loptp = nil
+
+	local follow
+
 	if treclas ~= "LoneCave" then
-		loptp = game["Run Service"].Heartbeat:Connect(function()
-			cooper.Character.HumanoidRootPart.CFrame = CFrame.new(tre.WoodSection.Position + Vector3.new(5, 3, 0))
+		follow = game:GetService("RunService").Heartbeat:Connect(function()
+			cooper.Character.HumanoidRootPart.CFrame =
+				CFrame.new(tre.WoodSection.Position + Vector3.new(5, 3, 0))
 		end)
 	end
+
 	tre = choppy(tre, ax)
-	if treclas ~= "LoneCave" then
-		loptp:Disconnect()
-		loptp = nil
+
+	if follow then
+		follow:Disconnect()
 	end
-	task.wait(0.15)
+
+	task.wait(0.2)
+
 	task.spawn(function()
-		for cooper=1, 60 do
+		for i = 1, 60 do
 			replicatedfarts.Interaction.ClientIsDragging:FireServer(tre)
 			task.wait()
 		end
 	end)
-	task.wait(0.1)
+
 	tre.PrimaryPart = tre.WoodSection
-	for i=1, 60 do
-		tre.PrimaryPart.Velocity = Vector3.new(0, 0, 0)
-		tre:PivotTo(curpos)
+
+	for i = 1, 60 do
+		tre.PrimaryPart.Velocity = Vector3.zero
+		tre:PivotTo(startpos)
 		task.wait()
 	end
-	if treclas == "LoneCave" then
-		cooper.Character.Humanoid:UnequipTools()
-		task.wait()
-		cooper.Character.Head:Destroy()
-		cooper.CharacterAdded:Wait()
-		task.wait(1.5)
-	end
+
 	cooper.Character.HumanoidRootPart.CFrame = tre.WoodSection.CFrame
-	return true, "Don get tre!"
+
+	return true, "Done"
 end
 
-local notfy = function(titl, tex, durashin)
-	game:GetService("StarterGui"):SetCore("SendNotification", {
-		Title = titl,
-		Text = tex,
-		Duration = durashin,
-	})
-end
+-- AUTO FARM LOOP (VOLCANO)
+local TARGET = "Volcano"
 
-local addtre = function(tre)
-	local TreBButon = Instance.new("TextButton")
-	TreBButon.Name = "TreBButon"
-	TreBButon.Parent = ScrollingFrame
-	TreBButon.BackgroundColor3 = Color3.fromRGB(205, 133, 63)
-	TreBButon.Position = UDim2.new(0.0483870953, 0, 0, 0)
-	TreBButon.Size = UDim2.new(0, 168, 0, 36)
-	TreBButon.Font = Enum.Font.Bangers
-	TreBButon.Text = tre
-	TreBButon.TextColor3 = Color3.fromRGB(139, 69, 19)
-	TreBButon.TextScaled = true
-	TreBButon.TextSize = 28.000
-	TreBButon.TextWrapped = true
-	TreBButon.MouseButton1Click:Connect(function()
-		local suces, mesg = bringy(tre)
-		if suces == true then
-			notfy("Suces!", mesg, 5)
-		elseif not (suces == true) then
-			notfy("Not suces!", mesg, 5)
+task.spawn(function()
+	while task.wait(3) do
+		local success, msg = bringy(TARGET)
+
+		if not success then
+			warn("[FARM FAIL]", msg)
+			task.wait(5)
+		else
+			print("[FARM OK] Volcano chopped")
 		end
-	end)
-end
-
-for _, cooper in next, treclases do
-	addtre(cooper)
-end
-
-local UserInputService = game:GetService("UserInputService")
-
-        local gui = Frame
-
-        local dragging
-        local dragInput
-        local dragStart
-        local startPos
-
-        local function update(input)
-        	local delta = input.Position - dragStart
-        	gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-
-        gui.InputBegan:Connect(function(input)
-        	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        		dragging = true
-        		dragStart = input.Position
-        		startPos = gui.Position
-        		
-        		input.Changed:Connect(function()
-        			if input.UserInputState == Enum.UserInputState.End then
-        				dragging = false
-        			end
-        		end)
-        	end
-        end)
-
-        gui.InputChanged:Connect(function(input)
-        	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        		dragInput = input
-        	end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-        	if input == dragInput and dragging then
-        		update(input)
-        	end
-        end)
+	end
+end)
