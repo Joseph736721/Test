@@ -332,7 +332,7 @@ task.spawn(function()
             
             -- 2. Deuxième priorité : Ice
             if not targetTree then
-                targetTree = getTrreOfClas("Ice")
+                targetTree = getTrreOfClas("Frost")
             end
             
             -- 3. Troisième priorité : N'importe quel arbre restant
