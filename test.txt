@@ -1,209 +1,304 @@
+-- ==========================================
 -- PLAYER / SERVICES
+-- ==========================================
 local cooper = game.Players.LocalPlayer
 local replicatedfarts = game.ReplicatedStorage
 local axeclasses = replicatedfarts:WaitForChild("AxeClasses")
+local RunService = game:GetService("RunService")
 
--- STORAGE
+-- VARIABLES GLOBALES DE CONTRÔLE
+_G.FarmEnabled = true
+
+-- ==========================================
+-- CRÉATION DU MINI GUI (En bas à gauche)
+-- ==========================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TreeFarmGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = cooper:WaitForChild("PlayerGui")
+
+-- Conteneur Principal
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 90)
+mainFrame.Position = UDim2.new(0, 15, 1, -105) -- Positionné en bas à gauche
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- Arrondir les angles du GUI
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = mainFrame
+
+-- Label pour le statut/progression
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 40)
+statusLabel.Position = UDim2.new(0, 0, 0, 5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Statut: En attente..."
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.TextSize = 14
+statusLabel.Font = Enum.Font.SourceSansBold
+statusLabel.Parent = mainFrame
+
+-- Bouton Activer / Désactiver
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 170, 0, 30)
+toggleButton.Position = UDim2.new(0, 15, 0, 45)
+toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Vert par défaut
+toggleButton.Text = "Disable"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 16
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.Parent = mainFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 5)
+buttonCorner.Parent = toggleButton
+
+-- Gestion du clic sur le bouton
+toggleButton.MouseButton1Click:Connect(function()
+    _G.FarmEnabled = not _G.FarmEnabled
+    if _G.FarmEnabled then
+        toggleButton.Text = "Disable"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Vert
+        statusLabel.Text = "Statut: Activé"
+    else
+        toggleButton.Text = "Enable"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60) -- Rouge
+        statusLabel.Text = "Statut: Désactivé"
+    end
+end)
+
+-- ==========================================
+-- STOCKAGE ET FONCTIONS DE BASE
+-- ==========================================
 local treeregins = {}
 local treclases = {}
 
--- FIND TREE REGIONS
+-- TROUVER LES RÉGIONS D'ARBRES
 for _, v in next, workspace:GetChildren() do
-	if v.Name == "TreeRegion" then
-		table.insert(treeregins, v)
-	end
+    if v.Name == "TreeRegion" then
+        table.insert(treeregins, v)
+    end
 end
 
--- COLLECT TREE CLASSES
+-- COLLECTER LES CLASSES D'ARBRE
 for _, region in next, treeregins do
-	for _, tree in next, region:GetChildren() do
-		if tree:FindFirstChild("TreeClass") and not table.find(treclases, tree.TreeClass.Value) then
-			table.insert(treclases, tree.TreeClass.Value)
-		end
-	end
+    for _, tree in next, region:GetChildren() do
+        if tree:FindFirstChild("TreeClass") and not table.find(treclases, tree.TreeClass.Value) then
+            table.insert(treclases, tree.TreeClass.Value)
+        end
+    end
 end
 
--- AXE STATS
+-- STATS DE LA HACHE
 function getAxStats(axName, treClas)
-	local module = axeclasses:FindFirstChild("AxeClass_" .. axName)
-	if not module then return end
+    local module = axeclasses:FindFirstChild("AxeClass_" .. axName)
+    if not module then return end
 
-	local axStats = require(module).new()
+    local axStats = require(module).new()
 
-	if axStats.SpecialTrees and axStats.SpecialTrees[treClas] then
-		for k, v in next, axStats.SpecialTrees[treClas] do
-			axStats[k] = v
-		end
-	end
+    if axStats.SpecialTrees and axStats.SpecialTrees[treClas] then
+        for k, v in next, axStats.SpecialTrees[treClas] do
+            axStats[k] = v
+        end
+    end
 
-	return axStats
+    return axStats
 end
 
--- TREE MASS CHECK
+-- CALCUL MASSE DE L'ARBRE
 function getModlMass(model)
-	local total = 0
-	local sections = 0
+    local total = 0
+    local sections = 0
 
-	for _, v in next, model:GetDescendants() do
-		if v:IsA("BasePart") and v.Name ~= "Leaves" then
-			if v.Name == "WoodSection" then
-				sections += 1
-			end
-			total += v.Mass
-		end
-	end
+    for _, v in next, model:GetDescendants() do
+        if v:IsA("BasePart") and v.Name ~= "Leaves" then
+            if v.Name == "WoodSection" then
+                sections += 1
+            end
+            total += v.Mass
+        end
+    end
 
-	return total, sections
+    return total, sections
 end
 
--- FIND BEST TREE
+-- TROUVER LE MEILLEUR ARBRE
 function getTrreOfClas(clas)
-	local options = {}
+    local options = {}
 
-	for _, region in next, treeregins do
-		for _, tree in next, region:GetChildren() do
-			if tree:IsA("Model") and tree:FindFirstChild("CutEvent") then
-				local trreclas = tree:FindFirstChild("TreeClass")
-				local owner = tree:FindFirstChild("Owner")
+    for _, region in next, treeregins do
+        for _, tree in next, region:GetChildren() do
+            if tree:IsA("Model") and tree:FindFirstChild("CutEvent") then
+                local jsonClas = tree:FindFirstChild("TreeClass")
+                local owner = tree:FindFirstChild("Owner")
 
-				if owner and trreclas and owner.Value == nil and trreclas.Value == clas then
-					local mass, secs = getModlMass(tree)
-					if secs > 1 then
-						table.insert(options, {tre = tree, mass = mass})
-					end
-				end
-			end
-		end
-	end
+                if owner and jsonClas and owner.Value == nil and jsonClas.Value == clas then
+                    local mass, secs = getModlMass(tree)
+                    if secs > 1 then
+                        table.insert(options, {tre = tree, mass = mass})
+                    end
+                end
+            end
+        end
+    end
 
-	table.sort(options, function(a, b)
-		return a.mass > b.mass
-	end)
+    table.sort(options, function(a, b)
+        return a.mass > b.mass
+    end)
 
-	return options[1] and options[1].tre or false, "No tree found."
+    return options[1] and options[1].tre or false, "No tree found."
 end
 
--- CHOP FUNCTION
+-- ==========================================
+-- FONCTION DE COUPE
+-- ==========================================
 function choppy(tre, ax)
-	task.wait()
+    task.wait()
 
-	cooper.Character.HumanoidRootPart.CFrame =
-		CFrame.new(tre.WoodSection.Position + Vector3.new(5, 0, 0))
+    -- Téléportation initiale directement sur la position du tronc
+    cooper.Character.HumanoidRootPart.CFrame = CFrame.new(tre.WoodSection.Position)
 
-	task.wait(0.25)
+    task.wait(0.25)
 
-	local axStats = getAxStats(ax.ToolName.Value, tre.TreeClass.Value)
+    local axStats = getAxStats(ax.ToolName.Value, tre.TreeClass.Value)
 
-	local propertys = {
-		tool = ax,
-		height = 0.3,
-		faceVector = Vector3.new(1, 0, 0),
-		sectionId = 1,
-		hitPoints = axStats.Damage,
-		cooldown = axStats.SwingCooldown,
-		cuttingClass = "Axe"
-	}
+    local propertys = {
+        tool = ax,
+        height = 0.3,
+        faceVector = Vector3.new(1, 0, 0),
+        sectionId = 1,
+        hitPoints = axStats.Damage,
+        cooldown = axStats.SwingCooldown,
+        cuttingClass = "Axe"
+    }
 
-	local newtre = nil
-	local conn
+    local newtre = nil
+    local conn
 
-	conn = workspace.LogModels.ChildAdded:Connect(function(t)
-		task.wait()
-		if t:FindFirstChild("Owner") and t.Owner.Value == cooper then
-			newtre = t
-			conn:Disconnect()
-		end
-	end)
+    conn = workspace.LogModels.ChildAdded:Connect(function(t)
+        task.wait()
+        if t:FindFirstChild("Owner") and t.Owner.Value == cooper then
+            newtre = t
+            conn:Disconnect()
+        end
+    end)
 
-	repeat
-		replicatedfarts.Interaction.RemoteProxy:FireServer(tre.CutEvent, propertys)
-		task.wait(axStats.SwingCooldown)
-	until newtre ~= nil
+    statusLabel.Text = "Progression: Coupe en cours..."
 
-	return newtre
+    repeat
+        replicatedfarts.Interaction.RemoteProxy:FireServer(tre.CutEvent, propertys)
+        task.wait(axStats.SwingCooldown)
+    until newtre ~= nil or not _G.FarmEnabled -- S'arrête aussi si désactivé en plein milieu
+
+    return newtre
 end
 
--- MAIN FARM FUNCTION
+-- ==========================================
+-- FONCTION PRINCIPALE (FARM)
+-- ==========================================
 function bringy(treclas)
-	local startpos = cooper.Character.HumanoidRootPart.CFrame
-	cooper.Character.Humanoid:UnequipTools()
-	task.wait()
+    local startpos = cooper.Character.HumanoidRootPart.CFrame
+    cooper.Character.Humanoid:UnequipTools()
+    task.wait()
 
-	local axs = {}
+    local axs = {}
 
-	for _, tool in next, cooper.Backpack:GetChildren() do
-		if tool:FindFirstChild("ToolName") and tool.Name ~= "BlueprintTool" then
-			table.insert(axs, {
-				ax = tool,
-				stats = getAxStats(tool.ToolName.Value, treclas)
-			})
-		end
-	end
+    for _, tool in next, cooper.Backpack:GetChildren() do
+        if tool:FindFirstChild("ToolName") and tool.Name ~= "BlueprintTool" then
+            table.insert(axs, {
+                ax = tool,
+                stats = getAxStats(tool.ToolName.Value, treclas)
+            })
+        end
+    end
 
-	if #axs == 0 then
-		return false, "No axe found"
-	end
+    if #axs == 0 then
+        return false, "No axe found"
+    end
 
-	table.sort(axs, function(a, b)
-		return a.stats.Damage > b.stats.Damage
-	end)
+    table.sort(axs, function(a, b)
+        return a.stats.Damage > b.stats.Damage
+    end)
 
-	local ax = axs[1].ax
-	local tre = getTrreOfClas(treclas)
+    local ax = axs[1].ax
+    local tre = getTrreOfClas(treclas)
 
-	if not tre then
-		return false, "No tree found"
-	end
+    if not tre then
+        return false, "No tree found"
+    end
 
-	local follow
+    local follow
 
-	if treclas ~= "LoneCave" then
-		follow = game:GetService("RunService").Heartbeat:Connect(function()
-			cooper.Character.HumanoidRootPart.CFrame =
-				CFrame.new(tre.WoodSection.Position + Vector3.new(5, 3, 0))
-		end)
-	end
+    -- Téléportation continue DANS le tronc (Pas de Fly / Pas d'offset vertical)
+    if treclas ~= "LoneCave" then
+        follow = RunService.Heartbeat:Connect(function()
+            if tre and tre:FindFirstChild("WoodSection") then
+                cooper.Character.HumanoidRootPart.CFrame = CFrame.new(tre.WoodSection.Position)
+            end
+        end)
+    end
 
-	tre = choppy(tre, ax)
+    tre = choppy(tre, ax)
 
-	if follow then
-		follow:Disconnect()
-	end
+    if follow then
+        follow:Disconnect()
+    end
 
-	task.wait(0.2)
+    if not tre then 
+        return false, "Chop interrupted or failed" 
+    end
 
-	task.spawn(function()
-		for i = 1, 60 do
-			replicatedfarts.Interaction.ClientIsDragging:FireServer(tre)
-			task.wait()
-		end
-	end)
+    statusLabel.Text = "Progression: Téléportation du bois..."
+    task.wait(0.2)
 
-	tre.PrimaryPart = tre.WoodSection
+    task.spawn(function()
+        for i = 1, 60 do
+            replicatedfarts.Interaction.ClientIsDragging:FireServer(tre)
+            task.wait()
+        end
+    end)
 
-	for i = 1, 60 do
-		tre.PrimaryPart.Velocity = Vector3.zero
-		tre:PivotTo(startpos)
-		task.wait()
-	end
+    tre.PrimaryPart = tre.WoodSection
 
-	cooper.Character.HumanoidRootPart.CFrame = tre.WoodSection.CFrame
+    for i = 1, 60 do
+        tre.PrimaryPart.Velocity = Vector3.zero
+        tre:PivotTo(startpos)
+        task.wait()
+    end
 
-	return true, "Done"
+    cooper.Character.HumanoidRootPart.CFrame = tre.WoodSection.CFrame
+
+    return true, "Done"
 end
 
--- AUTO FARM LOOP (VOLCANO)
+-- ==========================================
+-- BOUCLE AUTOMATIQUE
+-- ==========================================
 local TARGET = "Volcano"
 
 task.spawn(function()
-	while task.wait(3) do
-		local success, msg = bringy(TARGET)
+    while true do
+        task.wait(1)
+        
+        if _G.FarmEnabled then
+            statusLabel.Text = "Statut: Recherche d'arbre..."
+            local success, msg = bringy(TARGET)
 
-		if not success then
-			warn("[FARM FAIL]", msg)
-			task.wait(5)
-		else
-			print("[FARM OK] Volcano chopped")
-		end
-	end
+            if not success then
+                warn("[FARM FAIL]", msg)
+                statusLabel.Text = "Statut: Erreur (" .. msg .. ")"
+                task.wait(4)
+            else
+                print("[FARM OK] Volcano chopped")
+                statusLabel.Text = "Statut: Terminé ! Attente..."
+                task.wait(2)
+            end
+        else
+            statusLabel.Text = "Statut: Désactivé"
+            task.wait(1)
+        end
+    end
 end)
