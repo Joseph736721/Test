@@ -17,49 +17,34 @@ screenGui.Name = "TreeFarmGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = cooper:WaitForChild("PlayerGui")
 
--- Conteneur Principal (Taille augmentée à 120 pour accueillir les coordonnées)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 120)
-mainFrame.Position = UDim2.new(0, 15, 1, -135) -- Ajusté pour ne pas déborder
+mainFrame.Size = UDim2.new(0, 200, 0, 130)
+mainFrame.Position = UDim2.new(0, 15, 1, -145)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
--- Arrondir les angles du GUI
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 8)
 uiCorner.Parent = mainFrame
 
--- Label pour le statut/progression
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 0, 30)
-statusLabel.Position = UDim2.new(0, 0, 0, 5)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "Statut: En attente..."
-statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-statusLabel.TextSize = 14
-statusLabel.Font = Enum.Font.SourceSansBold
-statusLabel.Parent = mainFrame
-
--- Label pour les Coordonnées XYZ en direct
 local coordsLabel = Instance.new("TextLabel")
-coordsLabel.Size = UDim2.new(1, 0, 0, 25)
-coordsLabel.Position = UDim2.new(0, 0, 0, 35)
+coordsLabel.Size = UDim2.new(1, 0, 0, 35)
+coordsLabel.Position = UDim2.new(0, 0, 0, 5)
 coordsLabel.BackgroundTransparency = 1
 coordsLabel.Text = "X: 0 | Y: 0 | Z: 0"
-coordsLabel.TextColor3 = Color3.fromRGB(241, 196, 15) -- Couleur jaune/or pour lisibilité
-coordsLabel.TextSize = 13
+coordsLabel.TextColor3 = Color3.fromRGB(241, 196, 15)
+coordsLabel.TextSize = 14
 coordsLabel.Font = Enum.Font.Code
 coordsLabel.Parent = mainFrame
 
--- Bouton Activer / Désactiver
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 170, 0, 30)
-toggleButton.Position = UDim2.new(0, 15, 0, 70)
-toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Vert par défaut
+toggleButton.Position = UDim2.new(0, 15, 0, 45)
+toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
 toggleButton.Text = "Disable"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.TextSize = 16
+toggleButton.TextSize = 15
 toggleButton.Font = Enum.Font.SourceSansBold
 toggleButton.Parent = mainFrame
 
@@ -67,25 +52,40 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 5)
 buttonCorner.Parent = toggleButton
 
--- Gestion du clic sur le bouton
+local tpSpawnButton = Instance.new("TextButton")
+tpSpawnButton.Size = UDim2.new(0, 170, 0, 30)
+tpSpawnButton.Position = UDim2.new(0, 15, 0, 85)
+tpSpawnButton.BackgroundColor3 = Color3.fromRGB(41, 128, 185)
+tpSpawnButton.Text = "TP SPAWN"
+tpSpawnButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpSpawnButton.TextSize = 15
+tpSpawnButton.Font = Enum.Font.SourceSansBold
+tpSpawnButton.Parent = mainFrame
+
+local tpCorner = Instance.new("UICorner")
+tpCorner.CornerRadius = UDim.new(0, 5)
+tpCorner.Parent = tpSpawnButton
+
 toggleButton.MouseButton1Click:Connect(function()
     _G.FarmEnabled = not _G.FarmEnabled
     if _G.FarmEnabled then
         toggleButton.Text = "Disable"
         toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-        statusLabel.Text = "Statut: Activé"
     else
         toggleButton.Text = "Enable"
         toggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
-        statusLabel.Text = "Statut: Désactivé"
     end
 end)
 
--- MISE À JOUR DES COORDONNÉES EN DIRECT
+tpSpawnButton.MouseButton1Click:Connect(function()
+    if cooper.Character and cooper.Character:FindFirstChild("HumanoidRootPart") then
+        cooper.Character.HumanoidRootPart.CFrame = CFrame.new(235.2, 10, 79.6)
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
     if cooper.Character and cooper.Character:FindFirstChild("HumanoidRootPart") then
         local pos = cooper.Character.HumanoidRootPart.Position
-        -- Arrondit à 1 chiffre après la virgule pour éviter d'avoir un texte trop long
         coordsLabel.Text = string.format("X: %.1f | Y: %.1f | Z: %.1f", pos.X, pos.Y, pos.Z)
     else
         coordsLabel.Text = "X: -- | Y: -- | Z: --"
@@ -143,6 +143,7 @@ function getModlMass(model)
     return total, sections
 end
 
+-- RECHERCHE LE MEILLEUR ARBRE SELON UNE CLASSE
 function getTrreOfClas(clas)
     local options = {}
 
@@ -166,15 +167,38 @@ function getTrreOfClas(clas)
         return a.mass > b.mass
     end)
 
-    return options[1] and options[1].tre or false, "No tree found."
+    return options[1] and options[1].tre or false
 end
 
--- ==========================================
--- FONCTION DE COUPE
--- ==========================================
+-- TROUVE N'IMPORTE QUEL ARBRE DISPONIBLE ALÉATOIREMENT
+function getRandomAvailableTree()
+    local options = {}
+
+    for _, region in next, treeregins do
+        for _, tree in next, region:GetChildren() do
+            if tree:IsA("Model") and tree:FindFirstChild("CutEvent") then
+                local owner = tree:FindFirstChild("Owner")
+                local jsonClas = tree:FindFirstChild("TreeClass")
+                if owner and owner.Value == nil and jsonClas and tree:FindFirstChild("WoodSection") then
+                    local _, secs = getModlMass(tree)
+                    if secs > 1 then
+                        table.insert(options, tree)
+                    end
+                end
+            end
+        end
+    end
+
+    if #options > 0 then
+        return options[math.random(1, #options)]
+    end
+    return false
+end
+
 function choppy(tre, ax)
     task.wait()
 
+    if not tre or not tre:FindFirstChild("WoodSection") then return nil end
     cooper.Character.HumanoidRootPart.CFrame = CFrame.new(tre.WoodSection.Position)
 
     task.wait(0.25)
@@ -202,26 +226,27 @@ function choppy(tre, ax)
         end
     end)
 
-    statusLabel.Text = "Progression: Coupe en cours..."
-
     repeat
+        if not tre or not tre:FindFirstChild("CutEvent") then break end
         replicatedfarts.Interaction.RemoteProxy:FireServer(tre.CutEvent, propertys)
         task.wait(axStats.SwingCooldown)
     until newtre ~= nil or not _G.FarmEnabled
 
+    if conn then conn:Disconnect() end
     return newtre
 end
 
 -- ==========================================
--- FONCTION PRINCIPALE (FARM)
+-- FONCTION PRINCIPALE (FARM SANS RETOUR)
 -- ==========================================
-function bringy(treclas)
-    local startpos = cooper.Character.HumanoidRootPart.CFrame
+function bringy(tre)
+    if not tre or not tre:FindFirstChild("TreeClass") then return false, "Invalid tree" end
+    local treclas = tre.TreeClass.Value
+
     cooper.Character.Humanoid:UnequipTools()
     task.wait()
 
     local axs = {}
-
     for _, tool in next, cooper.Backpack:GetChildren() do
         if tool:FindFirstChild("ToolName") and tool.Name ~= "BlueprintTool" then
             table.insert(axs, {
@@ -240,12 +265,6 @@ function bringy(treclas)
     end)
 
     local ax = axs[1].ax
-    local tre = getTrreOfClas(treclas)
-
-    if not tre then
-        return false, "No tree found"
-    end
-
     local follow
 
     if treclas ~= "LoneCave" then
@@ -266,53 +285,75 @@ function bringy(treclas)
         return false, "Chop interrupted or failed" 
     end
 
-    statusLabel.Text = "Progression: Téléportation du bois..."
-    task.wait(0.2)
+    task.wait(0.3)
 
-    task.spawn(function()
-        for i = 1, 60 do
-            replicatedfarts.Interaction.ClientIsDragging:FireServer(tre)
-            task.wait()
+    -- Coordonnées cibles pour chaque morceau de bois (Log)
+    local targetLogPos = CFrame.new(315.2, 1, 100)
+
+    local logsToTeleport = {}
+    for _, child in next, tre:GetDescendants() do
+        if child:IsA("BasePart") and child.Name == "WoodSection" then
+            table.insert(logsToTeleport, child)
         end
-    end)
-
-    tre.PrimaryPart = tre.WoodSection
-
-    for i = 1, 60 do
-        tre.PrimaryPart.Velocity = Vector3.zero
-        tre:PivotTo(startpos)
-        task.wait()
     end
 
-    cooper.Character.HumanoidRootPart.CFrame = tre.WoodSection.CFrame
+    -- Téléporte chaque bout de bois individuellement
+    for _, log in next, logsToTeleport do
+        task.spawn(function()
+            for i = 1, 20 do
+                replicatedfarts.Interaction.ClientIsDragging:FireServer(log)
+                task.wait()
+            end
+        end)
+        
+        for i = 1, 15 do
+            log.Velocity = Vector3.zero
+            log.RotVelocity = Vector3.zero
+            log.CFrame = targetLogPos
+            task.wait()
+        end
+    end
 
     return true, "Done"
 end
 
 -- ==========================================
--- BOUCLE AUTOMATIQUE
+-- BOUCLE DE SÉLECTION INTELLIGENTE
 -- ==========================================
-local TARGET = "Volcano"
-
 task.spawn(function()
     while true do
-        task.wait(1)
+        task.wait(0.5)
         
         if _G.FarmEnabled then
-            statusLabel.Text = "Statut: Recherche d'arbre..."
-            local success, msg = bringy(TARGET)
+            local targetTree = nil
+            
+            -- 1. Priorité absolue : Volcano
+            targetTree = getTrreOfClas("Volcano")
+            
+            -- 2. Deuxième priorité : Ice
+            if not targetTree then
+                targetTree = getTrreOfClas("Ice")
+            end
+            
+            -- 3. Troisième priorité : N'importe quel arbre restant
+            if not targetTree then
+                targetTree = getRandomAvailableTree()
+            end
 
-            if not success then
-                warn("[FARM FAIL]", msg)
-                statusLabel.Text = "Statut: Erreur (" .. msg .. ")"
-                task.wait(4)
+            if targetTree then
+                local success, msg = bringy(targetTree)
+                if not success then
+                    warn("[FARM FAIL]", msg)
+                    task.wait(2)
+                else
+                    print("[FARM OK] Tree processed successfully")
+                end
             else
-                print("[FARM OK] Volcano chopped")
-                statusLabel.Text = "Statut: Terminé ! Attente..."
-                task.wait(2)
+                -- Aucun arbre du tout sur la map
+                print("[FARM] Plus aucun arbre disponible sur la carte. Attente...")
+                task.wait(3)
             end
         else
-            statusLabel.Text = "Statut: Désactivé"
             task.wait(1)
         end
     end
