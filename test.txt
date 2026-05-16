@@ -1,0 +1,114 @@
+-- Executor-Compatible Lumber Tycoon 2 Auto Farm Script
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+while not player do
+    task.wait()
+    player = Players.LocalPlayer
+end
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- SETTINGS
+local AUTO_RANGE = 200
+local MOD_SIZE = Vector3.new(5, 5, 5)
+local TREE_RESPAWN_TIME = 5
+local TREE_COLORS = {Oak = Color3.fromRGB(139,69,19), Birch = Color3.fromRGB(255,255,200), Pine = Color3.fromRGB(85,107,47)}
+local autoFarmEnabled = false
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoFarmGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0,150,0,50)
+toggleButton.Position = UDim2.new(0,20,0,20)
+toggleButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+toggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 20
+toggleButton.Text = "Auto Farm: OFF"
+toggleButton.Parent = screenGui
+
+toggleButton.MouseButton1Click:Connect(function()
+    autoFarmEnabled = not autoFarmEnabled
+    if autoFarmEnabled then
+        toggleButton.Text = "Auto Farm: ON"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0,200,0)
+    else
+        toggleButton.Text = "Auto Farm: OFF"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+    end
+end)
+
+-- Chop & bring trees
+local function chopAndBringTree(tree)
+    if not tree:IsA("Model") then return end
+    local treeType = tree.Name
+    local trunk = tree:FindFirstChild("Trunk")
+    if not trunk then return end
+
+    local clone = tree:Clone()
+    tree:Destroy()
+
+    local base = Workspace:FindFirstChild("Base")
+    if base then
+        clone:SetPrimaryPartCFrame(base.CFrame + Vector3.new(0,5,0))
+    end
+
+    for _, part in ipairs(clone:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Size = MOD_SIZE
+            part.Color = TREE_COLORS[treeType] or Color3.fromRGB(255,200,0)
+        end
+    end
+    clone.Parent = Workspace
+
+    task.delay(TREE_RESPAWN_TIME, function()
+        local template = ReplicatedStorage:WaitForChild("TreeTemplates"):FindFirstChild(treeType)
+        if template then
+            local newTree = template:Clone()
+            newTree:SetPrimaryPartCFrame(CFrame.new(math.random(-50,50),5,math.random(-50,50)))
+            newTree.Parent = Workspace
+        end
+    end)
+end
+
+-- Find nearest tree
+local function getNearestTree()
+    local nearestTree = nil
+    local shortestDistance = AUTO_RANGE
+    local char = player.Character or player.CharacterAdded:Wait()
+    if not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local hrp = char.HumanoidRootPart
+
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") and TREE_COLORS[obj.Name] then
+            local trunk = obj:FindFirstChild("Trunk")
+            if trunk then
+                local dist = (hrp.Position - trunk.Position).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    nearestTree = obj
+                end
+            end
+        end
+    end
+    return nearestTree
+end
+
+-- Auto farm loop
+RunService.Heartbeat:Connect(function()
+    if autoFarmEnabled then
+        local tree = getNearestTree()
+        if tree then
+            chopAndBringTree(tree)
+        end
+    end
+end)
