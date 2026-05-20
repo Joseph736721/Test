@@ -39,7 +39,7 @@ local function serverHop()
     
     -- Auto-réexécution au changement de serveur si supporté
     if queue_on_teleport then
-        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/Joseph736721/Test/refs/heads/main/test.txt'))()]]) -- Remplace par le lien de ton script si tu l'héberges
+        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/...'))()]]) -- Remplace par le lien de ton script si tu l'héberges
     end
 
     task.wait(1)
@@ -147,14 +147,6 @@ RunService.RenderStepped:Connect(function()
         coordsLabel.Text = string.format("X: %.1f | Y: %.1f | Z: %.1f", pos.X, pos.Y, pos.Z)
     else
         coordsLabel.Text = "X: -- | Y: -- | Z: --"
-    end
-    
-    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-    local money = leaderstats and leaderstats:FindFirstChild("Money")
-    if money then
-        moneyLabel.Text = "Argent: $" .. string.format('%,d', money.Value)
-    else
-        moneyLabel.Text = "Argent: --"
     end
 end)
 
