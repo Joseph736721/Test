@@ -25,10 +25,7 @@ local ClientIsDragging = Interaction:WaitForChild("ClientIsDragging")
 local currentStatus = "Initialisation..."
 local isPausedForDamage = false
 local totalTreesFarmedThisSession = 0
-
--- SYSTÈME D'ALTERNANCE (5 Volcano / 5 Frost)
-local currentTargetClass = "Volcano"
-local currentFarmCount = 0
+local currentTargetClass = "Frost"
 
 -- ==========================================
 -- FONCTION REJOIN ALÉATOIRE (SERVER HOP)
@@ -37,9 +34,8 @@ local function serverHop()
     setStatus("Server Hopping...")
     print("Tentative de Server Hop vers un serveur aléatoire...")
     
-    -- Auto-réexécution au changement de serveur si supporté
     if queue_on_teleport then
-        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/Joseph736721/Test/refs/heads/main/test.txt'))()]]) -- Remplace par le lien de ton script si tu l'héberges
+        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/...'))()]])
     end
 
     task.wait(1)
@@ -54,13 +50,12 @@ local function serverHop()
     if #x > 0 then
         TeleportService:TeleportToPlaceInstance(game.PlaceId, x[math.random(1, #x)], LocalPlayer)
     else
-        -- Solution de secours si la liste API est vide
         TeleportService:Teleport(game.PlaceId, LocalPlayer)
     end
 end
 
 -- ==========================================
--- CRÉATION DU MENU
+-- CRÉATION DU MENU (HAUTEUR AJUSTÉE)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TreeFarmUltimateGui"
@@ -69,7 +64,7 @@ screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 220, 0, 190)
-mainFrame.Position = UDim2.new(0, 15, 1, -205)
+mainFrame.Position = UDim2.new(0, 15, 1, -235) -- LÉGÈREMENT RELEVÉ ICI
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
@@ -141,6 +136,22 @@ local function setStatus(txt)
     statusLabel.Text = "Statut: " .. txt
 end
 
+local function tpToSpawn()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(235.2, 10, 79.6)
+    end
+end
+
+local function updateToggleButtonState()
+    if _G.FarmEnabled then
+        toggleButton.Text = "Disable"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+    else
+        toggleButton.Text = "Enable"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+    end
+end
+
 RunService.RenderStepped:Connect(function()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local pos = LocalPlayer.Character.HumanoidRootPart.Position
@@ -150,20 +161,10 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local function tpToSpawn()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(235.2, 10, 79.6)
-    end
-end
-
 toggleButton.MouseButton1Click:Connect(function()
     _G.FarmEnabled = not _G.FarmEnabled
-    if _G.FarmEnabled then
-        toggleButton.Text = "Disable"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-    else
-        toggleButton.Text = "Enable"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+    updateToggleButtonState()
+    if not _G.FarmEnabled then
         setStatus("Stoppée")
         tpToSpawn()
     end
@@ -256,7 +257,6 @@ local function runInitialSetup()
     task.wait(2)
 end
 
--- Lance le Setup au démarrage
 task.spawn(runInitialSetup)
 
 -- ==========================================
@@ -343,8 +343,14 @@ end
 local function processTree(tree)
     local treeClass = tree.TreeClass.Value
     local ax, axStats = getBestAxe(treeClass)
+    
+    -- SÉCURITÉ : Pas de hache trouvée
     if not ax then
-        warn("Aucune hache trouvée !")
+        warn("Aucune hache trouvée ! Désactivation du script.")
+        _G.FarmEnabled = false
+        updateToggleButtonState()
+        setStatus("Aucune hache !")
+        tpToSpawn()
         return
     end
 
@@ -442,14 +448,6 @@ local function processTree(tree)
         warn("Erreur KronHub Sell:", err)
     end
 
-    -- Gestion des quotas alternés (5 Volcano / 5 Frost)
-    currentFarmCount = currentFarmCount + 1
-    if currentFarmCount >= 5 then
-        currentFarmCount = 0
-        currentTargetClass = (currentTargetClass == "Volcano") and "Frost" or "Volcano"
-        print("Quota alternance atteint. Nouvelle cible principale : " .. currentTargetClass)
-    end
-
     -- Incrémentation et vérification du Server Hop
     totalTreesFarmedThisSession = totalTreesFarmedThisSession + 1
     if totalTreesFarmedThisSession >= _G.TreesBeforeHop then
@@ -462,7 +460,7 @@ local function processTree(tree)
 end
 
 -- ==========================================
--- BOUCLE DE SÉLECTION INTELLIGENTE
+-- BOUCLE DE SÉLECTION (UNIQUEMENT FROST)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -471,22 +469,15 @@ task.spawn(function()
         if _G.FarmEnabled and not isPausedForDamage and currentStatus ~= "Initialisation..." and not currentStatus:find("Init") then
             setStatus("Recherche d'arbre")
             
-            local backupTargetClass = (currentTargetClass == "Volcano") and "Frost" or "Volcano"
-            local targetTree = findTreeByClass(currentTargetClass)
-            
-            if not targetTree then
-                targetTree = findTreeByClass(backupTargetClass)
-                if targetTree then
-                    print("Cible principale introuvable. Utilisation du backup : " .. backupTargetClass)
-                end
-            end
+            -- Recherche uniquement le Frost
+            local targetTree = findTreeByClass("Frost")
 
             if targetTree then
                 processTree(targetTree)
             else
                 tpToSpawn()
                 for i = 1, 20 do
-                    if not _G.FarmEnabled or isPausedForDamage or findTreeByClass("Volcano") or findTreeByClass("Frost") then break end
+                    if not _G.FarmEnabled or isPausedForDamage or findTreeByClass("Frost") then break end
                     task.wait(0.5)
                 end
             end
