@@ -2,7 +2,7 @@
 -- CONFIGURATION GLOBALE
 -- ==========================================
 _G.FarmEnabled = true
-_G.TreesBeforeHop = 2 -- Nombre d'arbres à couper avant de Server Hop automatiquement
+_G.TreesBeforeHop = 10 -- Nombre d'arbres à couper avant de Server Hop automatiquement
 
 -- ==========================================
 -- SERVICES / PLAYER
@@ -25,6 +25,7 @@ local currentStatus = "Initialisation..."
 local isPausedForDamage = false
 local totalTreesFarmedThisSession = 0
 local currentTargetClass = "Frost"
+local isInitDone = false -- Sécurité pour bloquer le farm pendant l'init
 
 -- Variables pour le Server Hop Avancé
 local PlaceID = game.PlaceId
@@ -61,15 +62,16 @@ coordsLabel.TextSize = 13
 coordsLabel.Font = Enum.Font.Code
 coordsLabel.Parent = mainFrame
 
-local moneyLabel = Instance.new("TextLabel")
-moneyLabel.Size = UDim2.new(1, 0, 0, 25)
-moneyLabel.Position = UDim2.new(0, 0, 0, 30)
-moneyLabel.BackgroundTransparency = 1
-moneyLabel.Text = "Argent: $0"
-moneyLabel.TextColor3 = Color3.fromRGB(46, 204, 113)
-moneyLabel.TextSize = 14
-moneyLabel.Font = Enum.Font.SourceSansBold
-moneyLabel.Parent = mainFrame
+-- REMPLACEMENT DU LABEL ARGENT PAR LE COMPTEUR D'ARBRES
+local treeCounterLabel = Instance.new("TextLabel")
+treeCounterLabel.Size = UDim2.new(1, 0, 0, 25)
+treeCounterLabel.Position = UDim2.new(0, 0, 0, 30)
+treeCounterLabel.BackgroundTransparency = 1
+treeCounterLabel.Text = string.format("Arbres : %d / %d", totalTreesFarmedThisSession, _G.TreesBeforeHop)
+treeCounterLabel.TextColor3 = Color3.fromRGB(46, 204, 113)
+treeCounterLabel.TextSize = 14
+treeCounterLabel.Font = Enum.Font.SourceSansBold
+treeCounterLabel.Parent = mainFrame
 
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, 0, 0, 25)
@@ -115,6 +117,10 @@ tpCorner.Parent = tpSpawnButton
 local function setStatus(txt)
     currentStatus = txt
     statusLabel.Text = "Statut: " .. txt
+end
+
+local function updateTreeCounter()
+    treeCounterLabel.Text = string.format("Arbres : %d / %d", totalTreesFarmedThisSession, _G.TreesBeforeHop)
 end
 
 local function tpToSpawn()
@@ -164,7 +170,7 @@ local function TPReturner()
                             delfile("NotSameServers.json")
                             AllIDs = {}
                             table.insert(AllIDs, actualHour)
-                         pcall(function() writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs)) end)
+                            pcall(function() writefile("NotSameServers.json", HttpService:JSONEncode(AllIDs)) end)
                         end)
                     end
                 end
@@ -190,10 +196,9 @@ local function serverHop()
     print("Tentative de Server Hop intelligent...")
     
     if queue_on_teleport then
-        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/Joseph736721/Test/refs/heads/main/test.txt'))()]])
+        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/...'))()]])
     end
 
-    -- Initialisation du fichier de logs des serveurs
     pcall(function()
         AllIDs = HttpService:JSONDecode(readfile("NotSameServers.json"))
     end)
@@ -294,7 +299,11 @@ local function runInitialSetup()
     if not confirmPurchaseButton or not clickButton(confirmPurchaseButton) then serverHop() return end
     
     setStatus("Initialisation Ok !")
-    task.wait(2)
+    task.wait(5)
+    
+    setStatus("Lancement du Script...")
+    task.wait(1)
+    isInitDone = true
 end
 
 task.spawn(runInitialSetup)
@@ -487,8 +496,11 @@ local function processTree(tree)
         warn("Erreur KronHub Sell:", err)
     end
 
-    -- Incrémentation et vérification du Server Hop
+    -- Incrémentation et mise à jour du compteur visuel
     totalTreesFarmedThisSession = totalTreesFarmedThisSession + 1
+    updateTreeCounter()
+
+    -- Vérification du Server Hop Quota
     if totalTreesFarmedThisSession >= _G.TreesBeforeHop then
         print("Quota total de session atteint (".._G.TreesBeforeHop.." arbres). Changement de serveur...")
         serverHop()
@@ -528,8 +540,8 @@ task.spawn(function()
     while true do
         task.wait(0.5)
         
-        if _G.FarmEnabled and not isPausedForDamage and currentStatus ~= "Initialisation..." and not currentStatus:find("Init") then
-            setStatus("Recherche d'arbre")
+        if _G.FarmEnabled and isInitDone and not isPausedForDamage then
+            setStatus("Récupération de bois")
             
             local targetTree = findTreeByClass("Frost")
 
