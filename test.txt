@@ -196,7 +196,7 @@ local function serverHop()
     print("Tentative de Server Hop intelligent...")
     
     if queue_on_teleport then
-        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/...'))()]])
+        queue_on_teleport([[loadstring(game:HttpGet('https://raw.githubusercontent.com/Joseph736721/Test/refs/heads/main/test.txt'))()]])
     end
 
     pcall(function()
