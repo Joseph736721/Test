@@ -1,5 +1,6 @@
 -- ==========================================
 -- CONFIGURATION GLOBALE
+-- loadstring(game:HttpGet('https://raw.githubusercontent.com/Joseph736721/Test/refs/heads/main/test.txt'))()
 -- ==========================================
 _G.FarmEnabled = true
 _G.TreesBeforeHop = 10 -- Nombre d'arbres à couper avant de Server Hop automatiquement
@@ -62,7 +63,6 @@ coordsLabel.TextSize = 13
 coordsLabel.Font = Enum.Font.Code
 coordsLabel.Parent = mainFrame
 
--- REMPLACEMENT DU LABEL ARGENT PAR LE COMPTEUR D'ARBRES
 local treeCounterLabel = Instance.new("TextLabel")
 treeCounterLabel.Size = UDim2.new(1, 0, 0, 25)
 treeCounterLabel.Position = UDim2.new(0, 0, 0, 30)
@@ -393,12 +393,13 @@ local function processTree(tree)
     local treeClass = tree.TreeClass.Value
     local ax, axStats = getBestAxe(treeClass)
     
+    -- MODIFICATION : Si aucune hache n'est trouvée, queue et server hop directement
     if not ax then
-        warn("Aucune hache trouvée ! Désactivation du script.")
-        _G.FarmEnabled = false
-        updateToggleButtonState()
-        setStatus("Aucune hache !")
+        warn("Aucune hache trouvée ! Enregistrement dans la queue et Server Hop...")
+        setStatus("Pas de hache ! Hop...")
         tpToSpawn()
+        task.wait(1)
+        serverHop()
         return
     end
 
@@ -496,11 +497,9 @@ local function processTree(tree)
         warn("Erreur KronHub Sell:", err)
     end
 
-    -- Incrémentation et mise à jour du compteur visuel
     totalTreesFarmedThisSession = totalTreesFarmedThisSession + 1
     updateTreeCounter()
 
-    -- Vérification du Server Hop Quota
     if totalTreesFarmedThisSession >= _G.TreesBeforeHop then
         print("Quota total de session atteint (".._G.TreesBeforeHop.." arbres). Changement de serveur...")
         serverHop()
